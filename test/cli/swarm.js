@@ -37,6 +37,8 @@ describe('swarm', () => {
   describe('daemon on (through http-api)', function () {
     this.timeout(60 * 1000)
 
+    let dnsAddr = '_dnsaddr.bootstrap.libp2p.io'
+    let dnsAddrResolved = '/ip4/178.62.158.247/tcp/4001/ipfs/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd'
     let bMultiaddr
     let ipfsA
 
@@ -107,6 +109,20 @@ describe('swarm', () => {
       return ipfsA('swarm', 'disconnect', bMultiaddr).then((out) => {
         expect(out).to.eql(
           `disconnect ${bMultiaddr} success\n`
+        )
+      })
+    })
+
+    it('connect with dnsaddr', () => {
+      return ipfsA('swarm', 'connect', dnsAddr).then((out) => {
+        expect(out).to.eql(`connect ${dnsAddrResolved} success\n`)
+      })
+    })
+
+    it('disconnect dnsaddr', () => {
+      return ipfsA('swarm', 'disconnect', dnsAddrResolved).then((out) => {
+        expect(out).to.eql(
+          `disconnect ${dnsAddrResolved} success\n`
         )
       })
     })

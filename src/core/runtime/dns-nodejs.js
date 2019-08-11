@@ -10,7 +10,6 @@ const MAX_RECURSIVE_DEPTH = 32
 module.exports = (domain, opts, callback) => {
   // recursive is true by default, it's set to false only if explicitly passed as argument in opts
   const recursive = opts.recursive == null ? true : Boolean(opts.recursive)
-
   let depth
   if (recursive) {
     depth = MAX_RECURSIVE_DEPTH
@@ -24,7 +23,7 @@ function recursiveResolveDnslink (domain, depth, callback) {
     return callback(errcode(new Error('recursion limit exceeded'), 'ERR_DNSLINK_RECURSION_LIMIT'))
   }
 
-  return resolveDnslink(domain)
+  return resolveDnslinkOrAddr(domain)
     .catch(err => {
       // If the code is not ENOTFOUND or ERR_DNSLINK_NOT_FOUND or ENODATA then throw the error
       if (err.code !== 'ENOTFOUND' && err.code !== 'ERR_DNSLINK_NOT_FOUND' && err.code !== 'ENODATA') throw err
@@ -33,16 +32,24 @@ function recursiveResolveDnslink (domain, depth, callback) {
         // The supplied domain contains a _dnslink component
         // Check the non-_dnslink domain
         const rootDomain = domain.replace('_dnslink.', '')
-        return resolveDnslink(rootDomain)
+        return resolveDnslinkOrAddr(rootDomain)
       }
       // Check the _dnslink subdomain
       const _dnslinkDomain = `_dnslink.${domain}`
       // If this throws then we propagate the error
-      return resolveDnslink(_dnslinkDomain)
+      return resolveDnslinkOrAddr(_dnslinkDomain)
     })
     .then(dnslinkRecord => {
-      const result = dnslinkRecord.replace('dnslink=', '')
-      const domainOrCID = result.split('/')[2]
+      let result
+      let domainOrCID = null
+      if (dnslinkRecord.startsWith('dnsaddr=')) {
+        result = dnslinkRecord.replace('dnsaddr=', '')
+        domainOrCID = result.split('/').pop() 
+      } else {
+        result = dnslinkRecord.replace('dnslink=', '')
+        domainOrCID = result.split('/')[2]       
+      }
+
       const isIPFSCID = isIPFS.cid(domainOrCID)
 
       if (isIPFSCID || !depth) {
@@ -53,8 +60,10 @@ function recursiveResolveDnslink (domain, depth, callback) {
     .catch(callback)
 }
 
-function resolveDnslink (domain) {
+function resolveDnslinkOrAddr (domain) {
   const DNSLINK_REGEX = /^dnslink=.+$/
+  const DNSADDR_REGEX = /^dnsaddr=.+$/
+
   return new Promise((resolve, reject) => {
     dns.resolveTxt(domain, (err, records) => {
       if (err) return reject(err)
@@ -63,7 +72,7 @@ function resolveDnslink (domain) {
   })
     .then(records => {
       return _.chain(records).flatten().filter(record => {
-        return DNSLINK_REGEX.test(record)
+        return DNSLINK_REGEX.test(record) || DNSADDR_REGEX.test(record)
       }).value()
     })
     .then(dnslinkRecords => {
@@ -72,6 +81,6 @@ function resolveDnslink (domain) {
       if (dnslinkRecords.length === 0) {
         throw errcode(new Error(`No dnslink records found for domain: ${domain}`), 'ERR_DNSLINK_NOT_FOUND')
       }
-      return dnslinkRecords[0]
+      return dnslinkRecords.filter(addr => addr.indexOf('/ip4/') > -1)[0]
     })
 }
