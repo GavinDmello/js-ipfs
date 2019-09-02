@@ -90,6 +90,10 @@ exports.get = {
 
     const nodeJSON = node.toJSON()
 
+    if (!nodeJSON.links) {
+      throw new Error("Error: expected protobuf dag node")
+    }
+
     if (Buffer.isBuffer(node.data)) {
       nodeJSON.data = node.data.toString(request.query['data-encoding'] || undefined)
     }
