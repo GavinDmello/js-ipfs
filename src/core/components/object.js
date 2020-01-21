@@ -372,8 +372,13 @@ module.exports = function object (self) {
           return callback(err)
         }
 
-        result.node.Links = result.node.Links || []
-        result.node.Data = result.node.Data || result.node
+        if (!result.node.Links) {
+          result.node.Links = []
+        }
+
+        if (!result.node.Data) {
+          result.node.Data = result.node
+        }
 
         const blockSize = result.serialized.length
         const linkLength = result.node.Links.reduce((a, l) => a + l.Tsize, 0)

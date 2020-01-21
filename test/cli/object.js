@@ -65,6 +65,25 @@ describe('object', () => runOnAndOff((thing) => {
       })
   })
 
+  it('get with with add', function () {
+    this.timeout(15 * 1000)
+
+    return ipfs(`add ${path.resolve(path.join(__dirname, '..'))}/fixtures/planets -r --cid-version=1`)
+      .then(out => {
+        const lines = out.trim().split('\n')
+        return lines[lines.length - 1].split(' ')[1]
+      })
+      .then(cid => ipfs(`object get ${cid}`))
+      .then(out => {
+        console.log(out)
+        const result = JSON.parse(out)
+        expect(multibase.isEncoded(result.Hash)).to.deep.equal('base64')
+        result.Links.forEach(l => {
+          expect(multibase.isEncoded(l.Hash)).to.deep.equal('base64')
+        })
+      })
+  })
+
   it('get while overriding data-encoding', function () {
     this.timeout(15 * 1000)
 
